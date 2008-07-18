@@ -48,10 +48,15 @@ module DataMapper
 
         alias original_property_to_column_name property_to_column_name
 
-        def property_to_column_name(repository, property, qualify)
+        def fields_statement(query)
+          qualify = query.links.any?
+          query.fields.map { |p| property_to_column_name(query.repository, p, qualify, query.unique?) } * ', '
+        end
+        
+        def property_to_column_name(repository, property, qualify, unique=false)
           case property
             when Query::Operator
-              aggregate_field_statement(repository, property.operator, property.target, qualify)
+              aggregate_field_statement(repository, property.operator, property.target, qualify, unique)
             when Property
               original_property_to_column_name(repository, property, qualify)
             else
@@ -59,11 +64,12 @@ module DataMapper
           end
         end
 
-        def aggregate_field_statement(repository, aggregate_function, property, qualify)
+        def aggregate_field_statement(repository, aggregate_function, property, qualify, unique=false)
           column_name = if aggregate_function == :count && property == :all
             '*'
           else
-            property_to_column_name(repository, property, qualify)
+            unique ? "distinct #{property_to_column_name(repository, property, qualify)}" :
+              property_to_column_name(repository, property, qualify)
           end
 
           function_name = case aggregate_function
